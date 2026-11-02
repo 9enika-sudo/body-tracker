@@ -1,0 +1,479 @@
+
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Трекер тіла</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --success: #4ade80;
+      --danger: #f87171;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 4px; }
+    .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .card h2 { font-size: 1.15rem; margin-bottom: 16px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 12px 20px;
+      border-radius: 12px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #0f172a;
+      width: 100%;
+      margin-top: 16px;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      padding: 6px 12px;
+      font-size: 0.85rem;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .stat-value { font-size: 1.4rem; font-weight: 700; }
+    .stat-label { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+    .chart-container {
+      position: relative;
+      height: 260px;
+      margin-top: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+    .empty { text-align: center; color: var(--muted); padding: 30px 0; }
+    .bmi-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      padding: 12px;
+      background: #0f172a;
+      border-radius: 12px;
+    }
+    .bmi-value { font-size: 1.5rem; font-weight: 700; }
+    .bmi-label { font-size: 0.85rem; color: var(--muted); }
+    .height-row {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .height-row input { flex: 1; }
+    .height-row button {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      cursor: pointer;
+    }
+    @media (max-width: 500px) {
+      body { padding: 12px; }
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Трекер тіла</h1>
+  <p class="subtitle">Фіксуй зміни і дивись прогрес</p>
+
+  <!-- Статистика -->
+  <div class="stats" id="stats"></div>
+
+  <!-- Форма додавання -->
+  <div class="card">
+    <h2>Новий вимір</h2>
+    
+    <div class="height-row">
+      <div style="flex:1">
+        <label>Зріст (см) — для ІМТ</label>
+        <input type="number" id="height" placeholder="наприклад 168" step="0.1">
+      </div>
+      <button onclick="saveHeight()">Зберегти</button>
+    </div>
+
+    <div class="grid">
+      <div>
+        <label>Дата</label>
+        <input type="date" id="date">
+      </div>
+      <div>
+        <label>Вага (кг)</label>
+        <input type="number" id="weight" step="0.1" placeholder="65.5">
+      </div>
+      <div>
+        <label>Талія (см)</label>
+        <input type="number" id="waist" step="0.1">
+      </div>
+      <div>
+        <label>Стегна (см)</label>
+        <input type="number" id="hips" step="0.1">
+      </div>
+      <div>
+        <label>Груди (см)</label>
+        <input type="number" id="chest" step="0.1">
+      </div>
+      <div>
+        <label>Біцепс (см)</label>
+        <input type="number" id="biceps" step="0.1">
+      </div>
+      <div>
+        <label>Стегно (см)</label>
+        <input type="number" id="thigh" step="0.1">
+      </div>
+      <div>
+        <label>% жиру</label>
+        <input type="number" id="bodyfat" step="0.1" placeholder="опційно">
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label>Нотатка</label>
+      <textarea id="notes" rows="2" placeholder="Настрій, тренування..."></textarea>
+    </div>
+    <button class="btn btn-primary" onclick="addEntry()">Додати вимір</button>
+  </div>
+
+  <!-- Графіки -->
+  <div class="card">
+    <h2>Графіки</h2>
+    <div class="chart-container">
+      <canvas id="weightChart"></canvas>
+    </div>
+    <div class="chart-container" style="margin-top:24px">
+      <canvas id="measuresChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Історія -->
+  <div class="card">
+    <h2>Історія вимірів</h2>
+    <div id="history"></div>
+  </div>
+
+  <script>
+    // ===== Дані =====
+    let entries = JSON.parse(localStorage.getItem('bodyEntries') || '[]');
+    let height = parseFloat(localStorage.getItem('bodyHeight')) || null;
+
+    // ===== Ініціалізація =====
+    document.getElementById('date').valueAsDate = new Date();
+    if (height) document.getElementById('height').value = height;
+
+    // ===== Збереження зросту =====
+    function saveHeight() {
+      const h = parseFloat(document.getElementById('height').value);
+      if (!h || h < 100 || h > 250) {
+        alert('Вкажи коректний зріст (100–250 см)');
+        return;
+      }
+      height = h;
+      localStorage.setItem('bodyHeight', h);
+      render();
+      alert('Зріст збережено!');
+    }
+
+    // ===== Додати запис =====
+    function addEntry() {
+      const date = document.getElementById('date').value;
+      const weight = parseFloat(document.getElementById('weight').value);
+
+      if (!date || !weight) {
+        alert('Дата і вага обов’язкові');
+        return;
+      }
+
+      const entry = {
+        id: Date.now(),
+        date,
+        weight,
+        waist: parseFloat(document.getElementById('waist').value) || null,
+        hips: parseFloat(document.getElementById('hips').value) || null,
+        chest: parseFloat(document.getElementById('chest').value) || null,
+        biceps: parseFloat(document.getElementById('biceps').value) || null,
+        thigh: parseFloat(document.getElementById('thigh').value) || null,
+        bodyfat: parseFloat(document.getElementById('bodyfat').value) || null,
+        notes: document.getElementById('notes').value.trim()
+      };
+
+      entries.push(entry);
+      entries.sort((a, b) => a.date.localeCompare(b.date));
+      localStorage.setItem('bodyEntries', JSON.stringify(entries));
+
+      // Очистити форму
+      ['weight','waist','hips','chest','biceps','thigh','bodyfat','notes'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      document.getElementById('date').valueAsDate = new Date();
+
+      render();
+    }
+
+    // ===== Видалити =====
+    function deleteEntry(id) {
+      if (!confirm('Видалити цей вимір?')) return;
+      entries = entries.filter(e => e.id !== id);
+      localStorage.setItem('bodyEntries', JSON.stringify(entries));
+      render();
+    }
+
+    // ===== Розрахунок ІМТ =====
+    function calcBMI(weight) {
+      if (!height || !weight) return null;
+      const h = height / 100;
+      return (weight / (h * h)).toFixed(1);
+    }
+
+    function bmiCategory(bmi) {
+      if (bmi < 18.5) return 'Недостатня вага';
+      if (bmi < 25) return 'Норма';
+      if (bmi < 30) return 'Надмірна вага';
+      return 'Ожиріння';
+    }
+
+    // ===== Рендер =====
+    let weightChart, measuresChart;
+
+    function render() {
+      renderStats();
+      renderHistory();
+      renderCharts();
+    }
+
+    function renderStats() {
+      const el = document.getElementById('stats');
+      if (entries.length === 0) {
+        el.innerHTML = '';
+        return;
+      }
+
+      const last = entries[entries.length - 1];
+      const first = entries[0];
+      const weightDiff = (last.weight - first.weight).toFixed(1);
+      const bmi = calcBMI(last.weight);
+
+      el.innerHTML = `
+        <div class="stat">
+          <div class="stat-value">${last.weight}</div>
+          <div class="stat-label">Остання вага</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" style="color:${weightDiff > 0 ? 'var(--danger)' : 'var(--success)'}">
+            ${weightDiff > 0 ? '+' : ''}${weightDiff}
+          </div>
+          <div class="stat-label">Зміна ваги</div>
+        </div>
+        ${bmi ? `
+        <div class="stat">
+          <div class="stat-value">${bmi}</div>
+          <div class="stat-label">ІМТ · ${bmiCategory(bmi)}</div>
+        </div>` : ''}
+        <div class="stat">
+          <div class="stat-value">${entries.length}</div>
+          <div class="stat-label">Вимірів</div>
+        </div>
+      `;
+    }
+
+    function renderHistory() {
+      const el = document.getElementById('history');
+      if (entries.length === 0) {
+        el.innerHTML = '<div class="empty">Поки немає вимірів. Додай перший!</div>';
+        return;
+      }
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Вага</th>
+            <th>Талія</th>
+            <th>Стегна</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      [...entries].reverse().forEach(e => {
+        html += `
+          <tr>
+            <td>${formatDate(e.date)}</td>
+            <td><strong>${e.weight}</strong></td>
+            <td>${e.waist || '—'}</td>
+            <td>${e.hips || '—'}</td>
+            <td><button class="btn btn-danger" onclick="deleteEntry(${e.id})">×</button></td>
+          </tr>`;
+      });
+
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    function renderCharts() {
+      const labels = entries.map(e => formatDate(e.date));
+
+      // Вага
+      const weightData = entries.map(e => e.weight);
+      if (weightChart) weightChart.destroy();
+      weightChart = new Chart(document.getElementById('weightChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Вага (кг)',
+            data: weightData,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 45 } }
+          }
+        }
+      });
+
+      // Обхвати
+      if (measuresChart) measuresChart.destroy();
+      measuresChart = new Chart(document.getElementById('measuresChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Талія',
+              data: entries.map(e => e.waist),
+              borderColor: '#f472b6',
+              tension: 0.3,
+              pointRadius: 3,
+              spanGaps: true
+            },
+            {
+              label: 'Стегна',
+              data: entries.map(e => e.hips),
+              borderColor: '#a78bfa',
+              tension: 0.3,
+              pointRadius: 3,
+              spanGaps: true
+            },
+            {
+              label: 'Груди',
+              data: entries.map(e => e.chest),
+              borderColor: '#34d399',
+              tension: 0.3,
+              pointRadius: 3,
+              spanGaps: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#94a3b8', boxWidth: 12 }
+            }
+          },
+          scales: {
+            y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8', maxRotation: 45 } }
+          }
+        }
+      });
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+    }
+
+    // Старт
+    render();
+  </script>
+</body>
+</html>
